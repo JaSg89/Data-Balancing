@@ -4,7 +4,7 @@
 This repository contains the code and resources for the article:
 
 **"Enhancing Machine Learning for Credit Card Fraud Detection Using Mahalanobis-Based Undersampling of Extreme Values"**  
-Authors: Jorge Saavedra, Daira Velandia, Cristian Ubal, Eyleen Spencer, Rodrigo Salas
+Authors: Jorge Saavedra-Garrido, Daira Velandia, Cristian Ubal, Eyleen Spencer, Rodrigo Salas
 
 ## 📌 Description
 
@@ -13,7 +13,7 @@ Extreme class imbalance poses a significant challenge for credit card fraud dete
 ## 🧪 Included Techniques
 
 - **Random Undersampling**
-- **NearMiss (1, 2, 3)**
+- **NearMiss**
 - **SMOTE**
 - **Mahalanobis Distance-Based Sampling:**
   - MEUS (Majority-class Extreme-aware Undersampling)
@@ -49,7 +49,7 @@ FEUS consistently outperformed standard methods (e.g., SMOTE, NearMiss) achievin
 
 ## 📄 Citation
 
-> Saavedra, J.; Velandia, D.; Ubal, C.; Spencer, E.; Salas, R.  
+> Saavedra-Garrido, J.; Velandia, D.; Ubal, C.; Spencer, E.; Salas, R.  
 > *Enhancing Machine Learning for Credit Card Fraud Detection Using Mahalanobis-Based Undersampling of Extreme Values*. Mathematics 2024.
 
 ## 📥 Data
