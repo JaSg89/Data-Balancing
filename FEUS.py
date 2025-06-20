@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
 
 import os
 import sys
@@ -18,7 +13,7 @@ import tensorflow as tf # Importado para tf.random.set_seed
 
 from sklearn.model_selection import (
     train_test_split,
-    # StratifiedKFold, # No se usa directamente, GridSearchCV lo maneja
+    StratifiedKFold, # No se usa directamente, GridSearchCV lo maneja
     GridSearchCV
 )
 from sklearn.linear_model import LogisticRegression
@@ -50,7 +45,7 @@ except RuntimeError as e:
     logging.warning(f"Could not set TensorFlow threading: {e}. This might be okay if already configured.")
 
 
-# In[ ]:
+
 
 
 # -------------------------------------------------------------------
@@ -60,7 +55,7 @@ warnings.filterwarnings("ignore")
 np.random.seed(42)
 tf.random.set_seed(42)
 LOG_FMT = "%(asctime)s %(levelname)-8s %(message)s"
-N_SAMPLES_FEUS = 55000 # Número de muestras a conservar por FEUS
+N_SAMPLES_FEUS = 10000 # Número de muestras a conservar por FEUS
 
 # -------------------------------------------------------------------
 # Funciones auxiliares
@@ -166,31 +161,21 @@ def feus_apply_logic(data_features_input: pd.DataFrame, # Características del c
     return selected_indices
 
 
-def feus_scenario1_apply(df_orig_unscaled: pd.DataFrame, target_col_name='Class', n_samples_to_keep=N_SAMPLES_FEUS) -> (pd.DataFrame, pd.Series):
-    """
-    Aplica FEUS al dataset completo (df_orig_unscaled, que NO está escalado para modelado).
-    Escala internamente para Mahalanobis. Devuelve X_res, y_res en su escala original (unscaled).
-    """
+def feus_scenario1_apply(df_orig_unscaled: pd.DataFrame, target_col_name='Class', n_samples_to_keep=N_SAMPLES_FEUS) -> (pd.Index, object):
+
     df = df_orig_unscaled.copy()
-    X_for_feus_unscaled = df.drop(columns=[target_col_name])
-    # y_original = df[target_col_name] # No se usa y_original directamente aquí, solo para reconstruir
+    X_unscaled = df.drop(columns=[target_col_name])
+    
 
-    if X_for_feus_unscaled.empty:
-        logging.warning("FEUS Scen1: df_orig_unscaled sin características. Devolviendo truncado si es necesario.")
-        df_resampled = df.head(min(n_samples_to_keep, len(df)))
-        return df_resampled.drop(columns=[target_col_name]), df_resampled[target_col_name]
+    scaler_global_leaky = MinMaxScaler()
+    X_full_scaled = pd.DataFrame(scaler_global_leaky.fit_transform(X_unscaled), 
+                                 columns=X_unscaled.columns, 
+                                 index=X_unscaled.index)
 
-    selected_indices = feus_apply_logic(X_for_feus_unscaled, n_samples_to_keep, "Scen1_Full")
-    
-    # Seleccionar del DataFrame ORIGINAL (df_orig_unscaled)
-    df_resampled = df_orig_unscaled.loc[selected_indices].reset_index(drop=True) # No es necesario sample(frac=1) aquí
-    
-    X_res_unscaled = df_resampled.drop(columns=[target_col_name])
-    y_res = df_resampled[target_col_name]
-    
-    logging.info(f"FEUS Scen1: Resampled. Original: {df_orig_unscaled.shape[0]}, Seleccionado: {len(df_resampled)}, Objetivo: {n_samples_to_keep}")
-    logging.info(f"   Distribución de clases en FEUS Scen1 (después de seleccionar {n_samples_to_keep} más lejanos): {dict(y_res.value_counts())}")
-    return X_res_unscaled, y_res
+
+    selected_indices = feus_apply_logic(X_full_scaled, n_samples_to_keep, "Scen1_Full_Leaky")
+ 
+    return selected_indices, scaler_global_leaky
 
 
 def feus_scenario2_apply(X_train_input_scaled: pd.DataFrame, # X_train YA ESCALADO para modelado
@@ -227,32 +212,39 @@ def run_scenario_feus_controlled_scaling(df_original_unscaled, scenario, target_
     logging.info(f"Usando FEUS (escalado interno para Mahalanobis, escalado de modelado controlado por escenario).")
 
     if scenario == 'scenario1':
-        logging.info(f">> ESCENARIO 1: FEUS en TODO el dataset (sin escalar) -> Split -> Escalado Separado")
-        X_res_unscaled, y_res = feus_scenario1_apply(df_original_unscaled.copy(), 
-                                                     target_col_name=target_col_name, 
-                                                     n_samples_to_keep=N_SAMPLES_FEUS)
-        logging.info(f"   FEUS Scen1: Después de resample (antes de split y escalar): {X_res_unscaled.shape}, Distribución y_res: {dict(y_res.value_counts())}")
-
-        if X_res_unscaled.empty or y_res.empty:
-            logging.error("   FEUS Scen1: X_res_unscaled o y_res vacíos después del balanceo. Abortando escenario.")
+        logging.info(f">> ESCENARIO 1: FEUS con FUGA DE DATOS deliberada -> Split en datos escalados")
+        
+        # 1. Obtenemos los índices y el escalador con fuga
+        selected_indices, scaler_s1_leaky = feus_scenario1_apply(
+            df_original_unscaled.copy(), 
+            target_col_name=target_col_name, 
+            n_samples_to_keep=N_SAMPLES_FEUS
+        )
+        
+        if selected_indices.empty or scaler_s1_leaky is None:
+            logging.error("   FEUS Scen1: No se pudieron obtener índices o escalador. Abortando.")
             return pd.DataFrame(), pd.DataFrame(), pd.Series(dtype='float64'), pd.Series(dtype='float64')
 
-        stratify_param_s1 = y_res if not y_res.empty and len(y_res.unique()) > 1 else None
-        X_train_raw, X_test_raw, y_train_final, y_test_final = train_test_split(
-            X_res_unscaled, y_res, test_size=0.2, stratify=stratify_param_s1, random_state=42
+        # 2. Usamos el escalador con fuga para transformar TODO el dataset original
+        X_full_scaled_leaky = pd.DataFrame(
+            scaler_s1_leaky.transform(X_original_unscaled),
+            columns=X_original_unscaled.columns,
+            index=X_original_unscaled.index
         )
-        logging.info(f"   FEUS Scen1: Después de Split. X_train_raw: {X_train_raw.shape}, X_test_raw: {X_test_raw.shape}")
 
-        if not X_train_raw.empty:
-            scaler_s1 = MinMaxScaler()
-            X_train_final = pd.DataFrame(scaler_s1.fit_transform(X_train_raw), columns=X_train_raw.columns, index=X_train_raw.index)
-            if not X_test_raw.empty:
-                X_test_final = pd.DataFrame(scaler_s1.transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
-            else: X_test_final = pd.DataFrame()
-            logging.info(f"   FEUS Scen1: Después de Escalado. X_train_final: {X_train_final.shape}, X_test_final: {X_test_final.shape if not X_test_final.empty else '(empty)'}")
-        else:
-            X_train_final = pd.DataFrame()
-            X_test_final = pd.DataFrame()
+        # 3. Seleccionamos las filas (ya escaladas) usando los índices
+        X_res_scaled = X_full_scaled_leaky.loc[selected_indices]
+        y_res = y_original.loc[selected_indices] # El target correspondiente
+        
+        logging.info(f"   FEUS Scen1: Después de resample (datos ya escalados con fuga): {X_res_scaled.shape}")
+
+        # 4. HACEMOS EL SPLIT
+        stratify_param_s1 = y_res if not y_res.empty and len(y_res.unique()) > 1 else None
+        X_train_final, X_test_final, y_train_final, y_test_final = train_test_split(
+            X_res_scaled, y_res, test_size=0.2, stratify=stratify_param_s1, random_state=42
+        )
+        
+        logging.info(f"   FEUS Scen1: Después de Split. X_train_final: {X_train_final.shape}")
 
     else: # scenario2
         logging.info(f">> ESCENARIO 2: Split del dataset (sin escalar) -> Escalado Separado -> FEUS (solo en train escalado)")
@@ -315,37 +307,38 @@ def train_and_save_models(X_train, y_train, exp_name, output_dir):
         verbose=0,
     )
 
-    specs = { 
+    specs = {
 
         'nn': (
             nn_wrapper,
             {
-                'clf__learning_rate': [0.0001],
-                'clf__dropout_rate':  [0.05, 0.1, 0.3],
-                'clf__batch_size':    [16, 32, 64],
-                'clf__epochs':        [100], 
-                # No 'clf__validation_split' aquí si se maneja en fit_params o se omite
+                'clf__learning_rate': [0.0001], 
+                'clf__dropout_rate':  [0.05, 0.1, 0.3], 
+                'clf__batch_size':    [16, 32, 64, 128], 
+                'clf__epochs':        [200], 
             }
         ),
 
         'logreg': (
-            LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
-            {'clf__penalty':['l1','l2'], 'clf__C':[0.01, 0.1, 1, 10, 100], 'clf__solver':['liblinear']}
+            LogisticRegression(random_state=42, max_iter=2500, class_weight='balanced'),
+            {'clf__penalty':['l1','l2'], 'clf__C':[0.001, 0.01, 0.7, 0.1, 0.2, 1, 10, 100, 1000], 'clf__solver':['liblinear']}
         ),
         'svm': (
             SVC(probability=True, random_state=42, class_weight='balanced'),
-            {'clf__C': [0.5, 1, 5, 10], 'clf__kernel': ['rbf', 'linear', 'poly']}
+            {'clf__C': [0.1, 0.5, 0.7, 0.9, 1, 2.5, 3], 'clf__kernel': ['rbf', 'poly', 'sigmoid', 'linear']}
         ),
         'rf': (
             RandomForestClassifier(random_state=42, class_weight='balanced'),
-            {'clf__n_estimators':[100, 150, 200], 'clf__max_depth':[10, 20, 30, None], 
-             'clf__min_samples_split': [2, 5, 10], 'clf__min_samples_leaf': [1, 2, 4]}
+            {'clf__n_estimators':[50, 100, 200], 'clf__max_depth':[None, 10, 20, 30, 40], 'clf__min_samples_split': [2, 5, 10, 20], 'clf__min_samples_leaf': [1, 2, 4]}
         ),
         'xgb': (
             XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss'),
              {
-                'clf__n_estimators': [100, 150, 200], 'clf__max_depth': [3, 5, 7, 10],
-                'clf__learning_rate': [0.01, 0.05, 0.1, 0.2], 'clf__subsample': [0.7, 0.8, 0.9]
+                'clf__n_estimators': [50, 100, 200],
+                'clf__max_depth': [3, 5, 7, 10],
+                'clf__learning_rate': [0.001, 0.1],
+                'clf__subsample': [0.7, 0.8, 0.9],
+                'clf__colsample_bytree': [0.7, 0.8, 1]
             }
         )
     }
@@ -394,12 +387,20 @@ def train_and_save_models(X_train, y_train, exp_name, output_dir):
                 cv_obj = StratifiedKFold(n_splits=actual_n_splits, shuffle=True, random_state=42)
                 # --- FIN: Lógica para determinar n_cv_splits y crear cv_obj ---
 
-                grid = GridSearchCV(
-                    pipe, param_grid, 
-                    cv=cv_obj, 
-                    scoring='roc_auc', 
-                    n_jobs=5, verbose=1, refit=True, error_score='raise'
-                )
+                if name == 'nn':
+                    grid = GridSearchCV(
+                        pipe, param_grid, 
+                        cv=cv_obj, 
+                        scoring='roc_auc', 
+                        n_jobs=1, verbose=1, refit=True, error_score='raise'
+                    )
+                else: 
+                        grid = GridSearchCV(
+                        pipe, param_grid, 
+                        cv=cv_obj, 
+                        scoring='roc_auc', 
+                        n_jobs=3, verbose=1, refit=True, error_score='raise'
+                    )
                 
                 best_estimator_for_model = None # Inicializar
                 try:
@@ -558,7 +559,9 @@ def evaluate_and_save_reports(models, X_test, y_test, output_dir):
 
 if __name__ == "__main__":
     CSV_PATH = "/scratch/sivar/jarevalo/jsaavedra/creditcard.csv"
-    BASE_OUTPUT = "/scratch/sivar/jarevalo/jsaavedra/resultados_FEUS" 
+    BASE_OUTPUT = "/scratch/sivar/jarevalo/jsaavedra/Result_FEUS"
+   # CSV_PATH    = "C:/Users/saave/Desktop/Master_Thesis/Credit_card_data/creditcard.csv" 
+   # BASE_OUTPUT = "C:/Users/saave/Desktop/data_balance/Result_FEUS_test"
     TARGET_COLUMN_NAME = 'Class'
 
     for scenario in ["scenario1", "scenario2"]:
@@ -620,4 +623,3 @@ if __name__ == "__main__":
         print(f"=== Fin experimento: {exp_name} ===\n")
 
     print("Todos los experimentos FEUS con escalado controlado han finalizado.")
-
