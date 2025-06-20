@@ -202,7 +202,7 @@ def train_and_save_models(X_train, y_train, exp_name, output_dir):
         verbose=0, 
     )
 
-    specs = { # Usando tus specs originales
+    specs = { 
         'nn': (
             nn_wrapper,
             {
