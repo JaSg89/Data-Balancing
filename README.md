@@ -25,7 +25,7 @@ Our main contributions are two Mahalanobis distance-based undersampling methods:
 
 1.  **MEUS (Majority-class Extreme-aware Undersampling)**
     This technique creates a balanced 1-to-1 dataset by matching each minority class sample with its nearest majority class neighbor in the Mahalanobis space. This preserves local data structure and focuses the model on learning the decision boundary effectively. The distance is calculated as:
-    
+
     $$
     d_M(x_i, x_j) = \sqrt{(x_i - x_j)^T S^+ (x_i - x_j)}
     $$
@@ -36,6 +36,10 @@ Our main contributions are two Mahalanobis distance-based undersampling methods:
     $$
     d_M(x_i, \\bar{x}) = \sqrt{(x_i - \\bar{x})^T S^+ (x_i - \\bar{x})}
     $$
+
+        ```math
+    d_M(x_i, \bar{x}) = \sqrt{(x_i - \bar{x})^T S^+ (x_i - \bar{x})}
+    ```
 
 ## 📊 Evaluated Machine Learning Models
 
