@@ -33,9 +33,9 @@ Our main contributions are two Mahalanobis distance-based undersampling methods:
 2.  **FEUS (Furthest-point Extreme UnderSampling)**
     This technique takes a global approach by selecting the most extreme samples (outliers) from the entire dataset, regardless of their class. It calculates the Mahalanobis distance of each point from the global data centroid, retaining only the most informative instances. This method excels at improving class separability. The distance is calculated as:
 
-    $$
+    $$$
     d_M(x_i, \\bar{x}) = \sqrt{(x_i - \\bar{x})^T S^+ (x_i - \\bar{x})}.
-    $$
+    $$$
 
 ## 📊 Evaluated Machine Learning Models
 
