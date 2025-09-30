@@ -25,6 +25,7 @@ Our main contributions are two Mahalanobis distance-based undersampling methods:
 
 1.  **MEUS (Majority-class Extreme-aware Undersampling)**
     This technique creates a balanced 1-to-1 dataset by matching each minority class sample with its nearest majority class neighbor in the Mahalanobis space. This preserves local data structure and focuses the model on learning the decision boundary effectively. The distance is calculated as:
+
     $$
     d_M(x_i, x_j) = \sqrt{(x_i - x_j)^T S^+ (x_i - x_j)}
     $$
@@ -43,7 +44,7 @@ The performance of these techniques was evaluated on the following models:
 - Logistic Regression (LR)
 - Support Vector Machines (SVM)
 - Random Forests (RF)
-- XGBoost
+- XGBoost (XGB)
 - Artificial Neural Networks (ANN)
 
 All balancing techniques were correctly applied **after** the train-test split to ensure a robust and unbiased evaluation, avoiding data leakage.
