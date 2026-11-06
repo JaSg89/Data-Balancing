@@ -4,7 +4,7 @@
 </h1>
 
 <p align="center">
-  <em>Source code accompanying the research paper submitted to Elsevier</em>
+  <em>Source code accompanying the research paper submitted to Heliyon</em>
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
 
 ## 👥 Authors
 
-**Jorge Saavedra-Garrido**<sup>a</sup>, **Daira Velandia**<sup>a,b,*</sup>, **Keyla Canibilo Rojas**<sup>a</sup>, **Cristian Ubal**<sup>c</sup>, **Eyleen Spencer**<sup>d</sup>, **Rodrigo Salas**<sup>d,e,f</sup>
+**Jorge Saavedra-Garrido**<sup>a</sup>, **Daira Velandia**<sup>a,b,*</sup>, **Cristian Ubal**<sup>c</sup>, **Eyleen Spencer**<sup>d</sup>, **Keyla Canibilo Rojas**<sup>a</sup>, **Rodrigo Salas**<sup>d,e,f</sup>
 
 <sup>a</sup> Statistical Institute, Faculty of Science, Universidad de Valparaíso, Valparaíso, Chile  
 <sup>b</sup> Center for Atmospheric Studies and Climate Change (CEACC), Universidad de Valparaíso, Chile  
@@ -35,16 +35,9 @@
 
 ## 📋 Abstract
 
-Credit card fraud remains a significant challenge for financial institutions, exacerbated by the rapid growth of digital payments. A key difficulty is the **extreme class imbalance**, which biases models toward the majority class. While resampling is widely used, it is often applied before the train–test split, causing **data leakage** and yielding overestimated model performance.
+Severe class imbalance hinders the detection of card fraud, and applying resampling before partitioning the data inflates performance estimates due to information leakage. Mahalanobis distance has been used previously to detect outliers and in resampling procedures, but the behavior of two geometrically distinct selection rules, one local and one global, under the same metric for fraud detection has not been studied. In this manuscript, we propose and evaluate two subsampling strategies that retain only real transactions: **Majority-class Extreme-aware UnderSampling (MEUS)** matches each minority observation with a close majority candidate according to the Mahalanobis metric, and **Furthest-point Extreme UnderSampling (FEUS)** retains observations farther from the global centroid of the training set. Both use a global covariance matrix estimated from the training set, but apply distinct observation-selection rules. We compare them with five data-level resampling techniques on the European Credit Card Dataset (ECCD) and the IEEE-CIS Fraud Detection dataset using repeated stratified cross-validation, with resampling restricted to the training folds. Under severe imbalance, FEUS offered the most favorable compromise between precision and recall in ECCD and intermediate performance in IEEE-CIS, with low computational cost; MEUS was competitive in ECCD but lost precision in IEEE-CIS. A Euclidean ablation showed that incorporating covariance changes the balance between metrics without being uniformly superior. The effect of covariance undersampling depends on the classifier and the imbalance structure of the data, and we did not observe a method that dominated under all conditions.
 
-In this study, we propose a **Mahalanobis distance-based undersampling strategy** that selects extreme observations to improve class separation and reduce computational complexity. We evaluate two variants:
-
-- **MEUS** (*Majority-class Extreme-aware UnderSampling*) — performs 1-to-1 nearest-neighbor matching between minority and majority classes using Mahalanobis distance, producing a perfectly balanced dataset.
-- **FEUS** (*Furthest-point Extreme UnderSampling*) — selects the *N* samples furthest from the data centroid using Mahalanobis distance, retaining the most informative boundary and outlier instances.
-
-Under a **leakage-free protocol** where resampling is limited to the training folds, our variant **FEUS achieves the highest macro F1-Score and the highest mean precision**, with a modest decrease in mean recall. At the model level, FEUS delivers the best F1-Score for SVM, ANN, and XGBoost, while MEUS performs best for LR and RF. This profile positions **FEUS as a strategy that maximizes prediction reliability without sacrificing detection ability**.
-
-**Keywords:** Credit Card Fraud · Class Imbalance · Extreme Values · Mahalanobis Distance · Machine Learning · Data Leakage
+**Keywords:** Credit Card Fraud · Class Imbalance · Extreme Observations · Mahalanobis Distance · Machine Learning · Data Leakage
 
 ---
 
@@ -54,8 +47,8 @@ Under a **leakage-free protocol** where resampling is limited to the training fo
 
 | Technique | Type | Script | Description |
 |-----------|------|--------|-------------|
-| **FEUS** | Under-sampling | `new_FEUS.py` | Calculates the Mahalanobis distance of each sample from the global centroid and retains the *N<sub>keep</sub>* most extreme (furthest) observations from the entire training set. Enhances class separability by preserving boundary-relevant instances. |
-| **MEUS** | Under-sampling | `new_MEUS.py` | Uses 1-to-1 nearest-neighbor matching via Mahalanobis distance: for each minority instance, the closest unclaimed majority instance is selected, producing a balanced dataset of size 2·|S<sub>min</sub>|. |
+| **FEUS** | Under-sampling | `new_FEUS.py` | Computes the Mahalanobis distance of each training observation to the global centroid of the training fold and retains the *N<sub>keep</sub>* observations with the largest distances (*N<sub>keep</sub>* = 5000 in the paper). It does not enforce class balance; the resulting class proportion depends on the data geometry. |
+| **MEUS** | Under-sampling | `new_MEUS.py` | Retains all minority observations and matches each one, without replacement, with the first unassigned majority observation among its *K* = 100 nearest Mahalanobis neighbors. The result is balanced when every minority observation is matched; otherwise the script logs a warning. |
 
 ### Baseline Methods
 
@@ -63,7 +56,7 @@ Under a **leakage-free protocol** where resampling is limited to the training fo
 |-----------|------|--------|-------------|
 | **SMOTE** | Over-sampling | `new_SMOTE.py` | Synthetic Minority Over-sampling Technique — generates synthetic minority samples by interpolating between existing instances and their k-nearest neighbors. |
 | **NearMiss** | Under-sampling | `new_NEARMISS.py` | Selects majority samples closest to minority instances using k-NN heuristics, focusing retention on decision-boundary regions. |
-| **RUS** | Under-sampling | `new_UNDERSAMPLE.py` | Random Under-Sampling — randomly discards majority-class samples until class balance is achieved. |
+| **RS** | Under-sampling | `new_UNDERSAMPLE.py` | Random Subsampling — randomly discards majority-class samples until class balance is achieved. |
 | **ENN** | Under-sampling | `new_ENN.py` | Edited Nearest Neighbours — removes samples whose class label disagrees with the majority of their *k* nearest neighbors (data cleaning). |
 | **Tomek Links** | Under-sampling | `new_TOMEKLINKS.py` | Removes majority-class members of Tomek pairs (nearest-neighbor pairs from opposite classes), cleaning the decision boundary. |
 
@@ -71,25 +64,26 @@ Under a **leakage-free protocol** where resampling is limited to the training fo
 
 | Script | Description |
 |--------|-------------|
-| `FEUS_euclidean_mahalanobis.py` | Ablation study comparing **Euclidean vs. Mahalanobis** distance metrics within the FEUS framework. |
-| `TEST.py` | **Statistical analysis** — Friedman test, Nemenyi post-hoc comparisons, bootstrap confidence intervals (2,000 resamples), heatmaps, boxplots, and precision-recall scatter plots. |
+| `FEUS_euclidean_mahalanobis.py` | Ablation study comparing **Euclidean vs. Mahalanobis** distance within FEUS on ECCD (*N<sub>keep</sub>* = 5000). |
+| `TEST.py` | **Robustness analysis** for the ANN classifier — percentile bootstrap confidence intervals (2,000 resamples), Friedman test, Nemenyi post-hoc comparisons, heatmaps, boxplots, and precision-recall scatter plots. |
 | `opentSNE.py` | **t-SNE visualization** of resampled data distributions using [openTSNE](https://opentsne.readthedocs.io/), generating publication-quality figures for both MEUS and FEUS. |
 
 ---
 
 ## 🤖 Classification Models
 
-Each resampling technique is evaluated using five supervised classifiers, as described in the paper:
+Each resampling technique is evaluated with six supervised classifiers, as described in the paper:
 
-| Model | Abbreviation | Framework | Key Configuration |
-|-------|-------------|-----------|-------------------|
-| Artificial Neural Network (MLP) | ANN | TensorFlow / Keras | 32→16 neurons, softplus activation, dropout, Adam optimizer |
-| Logistic Regression | LR | scikit-learn | L2 penalty, SAGA solver |
-| Support Vector Machine | SVM | scikit-learn | RBF kernel, probability calibration |
-| Extreme Gradient Boosting | XGBoost | XGBoost | Early stopping, regularization |
-| Random Forest | RF | scikit-learn | 500 trees, entropy criterion, OOB scoring |
+| Model | Abbreviation | Framework |
+|-------|-------------|-----------|
+| Logistic Regression | LR | scikit-learn |
+| Support Vector Machine | SVM | scikit-learn |
+| Random Forest | RF | scikit-learn |
+| Extreme Gradient Boosting | XGBoost | XGBoost |
+| Artificial Neural Network (multilayer perceptron) | ANN | TensorFlow / Keras |
+| 1-Nearest Neighbor | 1-NN | scikit-learn |
 
-Additionally, a **1-Nearest Neighbor (1NN)** classifier is included as a baseline reference.
+Hyperparameters were tuned in a preliminary stage with stratified 4-fold cross-validation and then kept fixed in all simulations. They differ across resampling techniques and are defined in the `OPTIMAL_*_PARAMS` dictionaries at the top of each script (Supplementary Table S1 of the paper). XGBoost uses early stopping and the ANN uses a hold-out validation split, both drawn from the training fold.
 
 ---
 
@@ -101,15 +95,14 @@ All experiments report the following metrics (macro-averaged where applicable):
 |--------|-------------|
 | **Recall** (Sensitivity) | Ability to correctly identify fraudulent transactions |
 | **Precision** | Reliability of positive predictions |
-| **F1-Score** | Harmonic mean of precision and recall — the most informative metric under severe imbalance |
-| **Accuracy** | Overall correctness (>99% due to imbalance, limited diagnostic value) |
+| **F1-Score** | Harmonic mean of precision and recall |
+| **Accuracy** | Overall correctness; reported for completeness, with limited diagnostic value under strong imbalance |
 | **ROC-AUC** | Threshold-independent overall discrimination capability |
 | **PR-AUC** | Precision-Recall trade-off — especially relevant under extreme imbalance |
 
-Results are summarized with:
-- Mean ± Standard Deviation across 30 independent simulations
-- 95% Confidence Intervals (bootstrap with 2,000 resamples)
-- Friedman test + Nemenyi post-hoc comparisons for statistical significance
+Class labels are obtained with a fixed decision threshold of 0.5. Fold-level metrics are averaged within each simulation, and results are summarized over the 30 simulation-level estimates with:
+- Mean and 95% confidence interval based on the *t* distribution (main results)
+- Percentile bootstrap 95% confidence intervals (2,000 resamples), Friedman test, and Nemenyi post-hoc comparisons (robustness analysis, ANN classifier)
 
 ---
 
@@ -150,13 +143,17 @@ Results are summarized with:
 
 ## 📂 Dataset
 
-The primary dataset used in this study is the [Credit Card Fraud Detection dataset](https://www.kaggle.com/mlg-ulb/creditcardfraud) from Kaggle, containing **284,807** anonymized credit card transactions made by European cardholders in September 2013:
+Two public datasets are used.
+
+**European Credit Card Dataset (ECCD)** — [Credit Card Fraud Detection](https://www.kaggle.com/mlg-ulb/creditcardfraud) (Kaggle): **284,807** anonymized transactions made by European cardholders in September 2013.
 
 - **Fraudulent transactions**: 492 (0.17%)
 - **Legitimate transactions**: 284,315 (99.83%)
-- **Imbalance Ratio (IR)**: 578.88
+- **Imbalance Ratio (IR)**: 577.88
 - **Features**: 28 PCA-transformed components (V1–V28) + Time + Amount
 - **Target**: `Class` (1 = Fraud, 0 = Genuine)
+
+**IEEE-CIS Fraud Detection** — [Kaggle competition data](https://www.kaggle.com/competitions/ieee-fraud-detection/data): **590,540** e-commerce transactions, of which 20,663 (3.5%) are fraudulent. The `transaction` and `identity` tables were merged by `TransactionID`, and a fully numeric depurated table was built as described in the paper (transaction amount, temporal and identity-related variables, C and D families, UID-based aggregate descriptors, and a subset of V variables, with median imputation). A balanced version was also built by keeping all fraudulent transactions and randomly sampling the same number of legitimate ones (20,663 per class; 41,326 in total). The scripts expect these tables as `ieee_ready_depurada.csv` and `ieee_balanced.csv`.
 
 ---
 
@@ -198,7 +195,7 @@ pip install scikit-learn-intelex
 ## 📂 Repository Structure
 
 ```
-extreme-undersampling-imbalanced/
+Data-Balancing/
 │
 ├── README.md                            # This file
 ├── LICENSE                              # MIT License
@@ -212,7 +209,7 @@ extreme-undersampling-imbalanced/
 │── ── Baseline Methods ──────────────────
 ├── new_SMOTE.py                         # SMOTE (over-sampling baseline)
 ├── new_NEARMISS.py                      # NearMiss (under-sampling baseline)
-├── new_UNDERSAMPLE.py                   # RUS — Random Under-Sampling (baseline)
+├── new_UNDERSAMPLE.py                   # RS — Random Subsampling (baseline)
 ├── new_ENN.py                           # ENN — Edited Nearest Neighbours (baseline)
 ├── new_TOMEKLINKS.py                    # TL  — Tomek Links (baseline)
 │
@@ -233,7 +230,7 @@ Each `new_*.py` script is a self-contained experiment. To run, for example, the 
 python new_FEUS.py
 ```
 
-> **⚠️ Important:** Before running, update the `CSV_PATH` and `BASE_OUTPUT` variables at the top of each script to point to your local data files and desired output directory.
+> **⚠️ Important:** Each `new_*.py` script contains three configuration blocks at the top (ECCD, IEEE-CIS depurated, IEEE-CIS balanced). Uncomment the one you want and update `CSV_PATH` and `BASE_OUTPUT` to point to your local data file and desired output directory.
 
 ### Running Statistical Analysis
 
@@ -273,10 +270,11 @@ If you use this code in your research, please cite our paper:
 @article{saavedra2026mahalanobis,
   title     = {Addressing Class Imbalance in Credit Card Fraud Detection 
                Using Mahalanobis-Based Undersampling of Extreme Observations},
-  author    = {Saavedra-Garrido Jorge, Velandia Daira, Canibilo-Rojas Keyla, Ubal Cristian, Spencer Eyleen and Salas Rodrigo},
-  journal   = {Preprint submitted to Elsevier},
+  author    = {Saavedra-Garrido, Jorge and Velandia, Daira and Ubal, Cristian and Spencer, Eyleen and Canibilo Rojas, Keyla and Salas, Rodrigo},
+  journal   = {Heliyon},
+  note      = {Under review},
   year      = {2026},
-  keywords  = {Credit Card Fraud, Class Imbalance, Extreme Values, 
+  keywords  = {Credit Card Fraud, Class Imbalance, Extreme Observations, 
                Mahalanobis Distance, Machine Learning, Data Leakage}
 }
 ```
