@@ -40,7 +40,7 @@ LOG_FMT = "%(asctime)s %(levelname)-8s %(message)s"
 TARGET_COLUMN_NAME = 'Class'
 
 # --- PARÁMETROS DE FEUS ---
-N_SAMPLES_FEUS = 1000 
+N_SAMPLES_FEUS = 5000 
 
 # Parámetros óptimos para cada modelo (mantenidos del script original para consistencia)
 OPTIMAL_NN_PARAMS = {'learning_rate': 0.001, 'dropout_rate': 0.05, 'batch_size': 16, 'epochs': 150}
